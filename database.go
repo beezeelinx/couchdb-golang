@@ -793,6 +793,10 @@ func parseSelectorSyntax(selector string) (interface{}, error) {
 	return selectObj, nil
 }
 
+func (d *Database) ParseSelectorSyntax(selector string) (interface{}, error) {
+	return parseSelectorSyntax(selector)
+}
+
 // parseSortSyntax returns a slice of sort JSON struct.
 func parseSortSyntax(sorts []string) (interface{}, error) {
 	if sorts == nil {
@@ -814,6 +818,10 @@ func parseSortSyntax(sorts []string) (interface{}, error) {
 	}
 
 	return sortObjs, nil
+}
+
+func (d *Database) ParseSortSyntax(sorts []string) (interface{}, error) {
+	return parseSortSyntax(sorts)
 }
 
 // parseAST converts and returns a JSON struct according to
@@ -1307,6 +1315,22 @@ func beautifulJSONString(jsonable interface{}) (string, error) {
 //
 // name: optional, name of the index. A name generated automatically if not provided.
 func (d *Database) PutIndex(indexFields []string, ddoc, name string) (string, string, error) {
+	return d.PutPartialIndex(indexFields, ddoc, name, "")
+}
+
+// PutPartialIndex creates a new index in database with optinal partial filter selector.
+//
+// indexFields: a JSON array of field names following the sort syntax.
+//
+// ddoc: optional, name of the design document in which the index will be created.
+// By default each index will be created in its own design document. Indexes can be
+// grouped into design documents for efficiency. However a change to one index
+// in a design document will invalidate all other indexes in the same document.
+//
+// name: optional, name of the index. A name generated automatically if not provided.
+//
+// partial_filter_selector: A filter string, formatted as a Golang statement, to apply to documents at indexing time, creating a partial index.
+func (d *Database) PutPartialIndex(indexFields []string, ddoc, name string, partial_filter_selector string) (string, string, error) {
 	var design, index string
 	if len(indexFields) == 0 {
 		return design, index, errors.New("index fields cannot be empty")
@@ -1328,6 +1352,14 @@ func (d *Database) PutIndex(indexFields []string, ddoc, name string) (string, st
 
 	if len(name) > 0 {
 		indexJSON["name"] = name
+	}
+
+	if len(partial_filter_selector) > 0 {
+		selector, err := parseSelectorSyntax(partial_filter_selector)
+		if err != nil {
+			return design, index, err
+		}
+		indexJSON["index"].(map[string]interface{})["partial_filter_selector"] = selector
 	}
 
 	_, data, err := d.resource.PostJSON("_index", nil, indexJSON, nil)
