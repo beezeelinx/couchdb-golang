@@ -76,16 +76,17 @@ func NewResource(urlStr string, header http.Header) (*Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if strings.HasPrefix(urlStr, "https") {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{
-			Transport: tr,
-		}
+	tr := &http.Transport{
+		// Disable keep-alives entirely; it causes some ECONNRESET errors
+		DisableKeepAlives: true,
 	}
 
+	if strings.HasPrefix(urlStr, "https") {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	httpClient = &http.Client{
+		Transport: tr,
+	}
 	h := http.Header{}
 	if header != nil {
 		h = header
